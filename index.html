@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理世界投稿分析系统 — 论文评分与修改建议</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+<style>
+:root {
+  --primary: #8B1A1A;
+  --primary-light: #B22222;
+  --gold: #C5A55A;
+  --gold-light: #D4B96A;
+  --bg: #FAFAF8;
+  --card-bg: #FFFFFF;
+  --text: #2C2C2C;
+  --text-secondary: #666666;
+  --border: #E5E0D5;
+  --success: #2D7D46;
+  --warning: #B8860B;
+  --danger: #B22222;
+  --info: #2B5F8A;
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+  --radius: 8px;
+  --radius-lg: 12px;
+  --transition: 0.2s ease;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text); line-height:1.6; min-height:100vh;
+}
+.header {
+  background: linear-gradient(135deg, var(--primary) 0%, #6B1010 100%);
+  color: #fff; padding: 0 32px; display:flex; align-items:center; justify-content:space-between;
+  height:64px; position:sticky; top:0; z-index:100;
+  box-shadow: 0 2px 16px rgba(139,26,26,0.25);
+}
+.header-left { display:flex; align-items:center; gap:14px; }
+.header-logo {
+  width:36px; height:36px; background: var(--gold); border-radius:6px;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:900; font-size:18px; color: var(--primary);
+}
+.header h1 { font-size:17px; font-weight:600; letter-spacing:0.5px; }
+.header-right { display:flex; gap:8px; align-items:center; }
+.header .update-time { font-size:12px; color: rgba(255,255,255,0.7); }
+.header .live-dot { width:7px; height:7px; background:#4CAF50; border-radius:50%;
+  animation:pulse 1.8s infinite; display:inline-block; margin-right:6px; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.main-layout { display:flex; min-height:calc(100vh - 64px); }
+.sidebar {
+  width:220px; background:#fff; border-right:1px solid var(--border);
+  padding:20px 0; flex-shrink:0;
+}
+.sidebar-nav { display:flex; flex-direction:column; }
+.sidebar-nav a {
+  display:flex; align-items:center; gap:10px; padding:12px 24px;
+  color: var(--text-secondary); text-decoration:none; font-size:14px;
+  border-left:3px solid transparent; transition: var(--transition); cursor: pointer;
+}
+.sidebar-nav a:hover, .sidebar-nav a.active {
+  color: var(--primary); background: #FDF5F5;
+  border-left-color: var(--primary); font-weight:600;
+}
+.sidebar-nav a .icon { font-size:18px; width:22px; text-align:center; }
+.content { flex:1; padding:24px 32px; overflow-y:auto; max-width:1200px; }
+
+.card {
+  background: var(--card-bg); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow); padding:24px; margin-bottom:20px;
+  border:1px solid var(--border);
+}
+.card-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border);
+}
+.card-title { font-size:16px; font-weight:700; color: var(--primary); display:flex; align-items:center; gap:8px; }
+.card-title .icon { font-size:20px; }
+
+.stats-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
+.stat-card {
+  background: #fff; border-radius: var(--radius); padding:20px;
+  box-shadow:var(--shadow); border:1px solid var(--border);
+  text-align:center; transition:transform var(--transition);
+}
+.stat-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+.stat-value { font-size:32px; font-weight:800; color:var(--primary); }
+.stat-label { font-size:13px; color:var(--text-secondary); margin-top:4px; }
+.stat-sub { font-size:11px; color:var(--warning); margin-top:2px; }
+
+.upload-zone {
+  border:2px dashed var(--border); border-radius:var(--radius-lg);
+  padding:48px 24px; text-align:center; cursor:pointer;
+  transition:all var(--transition); position:relative;
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color:var(--primary); background:#FDF5F5; }
+.upload-zone .upload-icon { font-size:48px; margin-bottom:12px; }
+.upload-zone .upload-text { font-size:15px; color:var(--text-secondary); }
+.upload-zone .upload-hint { font-size:12px; color:#999; margin-top:6px; }
+.upload-zone input { display:none; }
+
+.btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:10px 20px; border-radius:var(--radius); font-size:14px;
+  font-weight:600; cursor:pointer; border:none; transition:var(--transition);
+}
+.btn-primary { background:var(--primary); color:#fff; }
+.btn-primary:hover { background:var(--primary-light); }
+.btn-outline { background:#fff; color:var(--primary); border:1.5px solid var(--primary); }
+.btn-outline:hover { background:#FDF5F5; }
+.btn-sm { padding:6px 14px; font-size:12px; }
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+.score-circle {
+  width:130px; height:130px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  flex-direction:column; margin:0 auto;
+  border:6px solid var(--primary);
+}
+.score-circle .score-num { font-size:38px; font-weight:900; color:var(--primary); }
+.score-circle .score-label { font-size:11px; color:var(--text-secondary); }
+.score-grade { text-align:center; margin-top:8px; font-weight:700; font-size:15px; }
+
+.dim-list { display:flex; flex-direction:column; gap:12px; }
+.dim-item { display:flex; align-items:center; gap:12px; }
+.dim-label { width:150px; font-size:13px; font-weight:500; flex-shrink:0; }
+.dim-bar-wrap { flex:1; height:24px; background:#F0EDE5; border-radius:12px; overflow:hidden; position:relative; }
+.dim-bar-fill {
+  height:100%; border-radius:12px; transition:width 0.8s ease;
+  display:flex; align-items:center; justify-content:flex-end;
+  padding-right:8px; font-size:11px; font-weight:700; color:#fff; min-width:0;
+}
+.dim-score { width:45px; text-align:right; font-weight:700; font-size:14px; flex-shrink:0; }
+
+.radar-wrap { max-width:500px; margin:0 auto; }
+
+.suggestion-card {
+  border-left:3px solid var(--warning); background:#FFFDF5;
+  padding:14px 18px; border-radius:0 var(--radius) var(--radius) 0; margin-bottom:10px;
+}
+.suggestion-card.critical { border-left-color:var(--danger); background:#FFF5F5; }
+.suggestion-card.good { border-left-color:var(--success); background:#F5FFF7; }
+.suggestion-card .sug-title { font-weight:700; font-size:14px; margin-bottom:4px; }
+.suggestion-card .sug-detail { font-size:13px; color:var(--text-secondary); line-height:1.7; }
+
+.tag {
+  display:inline-block; padding:4px 12px; border-radius:20px;
+  font-size:12px; font-weight:500; margin:3px;
+}
+.tag-hot { background:#FFF0F0; color:var(--danger); border:1px solid #FFD0D0; }
+.tag-trend { background:#FFF8E8; color:#B8860B; border:1px solid #FFE8B0; }
+.tag-normal { background:#F0F4F8; color:var(--info); border:1px solid #D0E0F0; }
+
+.data-table { width:100%; border-collapse:collapse; font-size:13px; }
+.data-table th {
+  background:#FDF5F5; padding:10px 14px; text-align:left;
+  font-weight:600; color:var(--primary); border-bottom:2px solid var(--border);
+}
+.data-table td { padding:10px 14px; border-bottom:1px solid var(--border); }
+.data-table tr:hover td { background:#FAFAF8; }
+
+.tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:0; }
+.tab-btn {
+  padding:10px 20px; background:none; border:none;
+  font-size:14px; cursor:pointer; color:var(--text-secondary);
+  border-bottom:2px solid transparent; margin-bottom:-2px;
+  transition:var(--transition); font-weight:500;
+}
+.tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:700; }
+
+.steps { display:flex; gap:0; margin-bottom:24px; }
+.step {
+  flex:1; text-align:center; padding:12px 8px; position:relative;
+  background:#F5F3EE; font-size:12px; color:#999;
+}
+.step::after {
+  content:''; position:absolute; right:-10px; top:50%; transform:translateY(-50%);
+  border-left:10px solid #F5F3EE; border-top:8px solid transparent;
+  border-bottom:8px solid transparent; z-index:2;
+}
+.step:last-child::after { display:none; }
+.step.active { background:var(--primary); color:#fff; }
+.step.active::after { border-left-color:var(--primary); }
+.step.done { background:#2D7D46; color:#fff; }
+.step.done::after { border-left-color:#2D7D46; }
+
+.text-center { text-align:center; }
+.mt-16 { margin-top:16px; }
+.mb-16 { margin-bottom:16px; }
+.hidden { display:none !important; }
+.flex-between { display:flex; align-items:center; justify-content:space-between; }
+
+/* Paper text preview */
+.text-preview {
+  background:#FAFAF8; border:1px solid var(--border); border-radius:var(--radius);
+  padding:16px; max-height:300px; overflow-y:auto;
+  font-size:13px; line-height:1.8; white-space:pre-wrap; word-break:break-all;
+  font-family: "Songti SC", "Noto Serif CJK SC", "STSong", "PingFang SC", "Microsoft YaHei", serif;
+}
+.text-stats {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:12px 0;
+}
+.text-stat-item {
+  text-align:center; padding:10px; background:#fff; border-radius:var(--radius);
+  border:1px solid var(--border);
+}
+.text-stat-val { font-size:20px; font-weight:800; color:var(--primary); }
+.text-stat-lbl { font-size:11px; color:var(--text-secondary); }
+
+/* Processing status */
+.processing-bar {
+  width:100%; height:6px; background:#F0EDE5; border-radius:3px; overflow:hidden; margin-top:12px;
+}
+.processing-bar-fill {
+  height:100%; background:var(--primary); border-radius:3px;
+  animation: processingAnim 2s ease-in-out infinite;
+}
+@keyframes processingAnim {
+  0% { width:0%; }
+  50% { width:70%; }
+  100% { width:100%; }
+}
+
+@media (max-width:768px) {
+  .sidebar { display:none; }
+  .content { padding:16px; }
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  .dim-label { width:100px; font-size:12px; }
+  .text-stats { grid-template-columns:repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">管</div>
+    <div>
+      <h1>管理世界投稿分析系统</h1>
+      <div style="font-size:11px;opacity:0.8">Management World Journal — Paper Scoring & Revision Guide</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="update-time"><span class="live-dot"></span>期刊数据更新于 <span id="updateTime"></span></span>
+  </div>
+</div>
+
+<div class="main-layout">
+
+<nav class="sidebar">
+  <div class="sidebar-nav">
+    <a onclick="switchTab('dashboard')" class="active" id="nav-dashboard"><span class="icon">📊</span> 期刊画像面板</a>
+    <a onclick="switchTab('scoring')" id="nav-scoring"><span class="icon">📝</span> 论文评分系统</a>
+    <a onclick="switchTab('revision')" id="nav-revision"><span class="icon">🔧</span> 修改建议中心</a>
+    <a onclick="switchTab('checklist')" id="nav-checklist"><span class="icon">✅</span> 投稿自检清单</a>
+    <a onclick="switchTab('topics')" id="nav-topics"><span class="icon">🎯</span> 选题趋势分析</a>
+  </div>
+</nav>
+
+<div class="content" id="mainContent">
+
+<!-- ====== TAB: 期刊画像面板 ====== -->
+<div id="tab-dashboard">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value">35.785</div><div class="stat-label">2024 复合影响因子</div><div class="stat-sub">管理学类排名第1</div></div>
+    <div class="stat-card"><div class="stat-value">8.2%</div><div class="stat-label">2025 录用率</div><div class="stat-sub">专题投稿327篇，录用27篇</div></div>
+    <div class="stat-card"><div class="stat-value">58天</div><div class="stat-label">平均审稿周期</div><div class="stat-sub">三审制（初审→外审→终审）</div></div>
+    <div class="stat-card"><div class="stat-value">15%</div><div class="stat-label">终审通过率</div><div class="stat-sub">外审通过后终审淘汰率</div></div>
+    <div class="stat-card"><div class="stat-value">21,000</div><div class="stat-label">录用文章平均字数</div><div class="stat-sub">最低要求18,000字</div></div>
+    <div class="stat-card"><div class="stat-value">31%</div><div class="stat-label">选题不符退稿率</div><div class="stat-sub">最常见退稿原因</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="icon">🏛️</span> 期刊核心定位</div></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+      <table class="data-table">
+        <tr><th style="width:100px">项目</th><th>详情</th></tr>
+        <tr><td>主管/主办</td><td>国务院发展研究中心</td></tr>
+        <tr><td>创刊年份</td><td>1985年</td></tr>
+        <tr><td>出版周期</td><td>月刊</td></tr>
+        <tr><td>国际刊号</td><td>ISSN 1002-5502</td></tr>
+        <tr><td>国内刊号</td><td>CN 11-1235/F</td></tr>
+        <tr><td>收录体系</td><td>CSSCI、北大核心、国家社科基金资助</td></tr>
+        <tr><td>期刊荣誉</td><td>管理学唯一"顶级期刊"（中国社科院评价）</td></tr>
+      </table>
+      <table class="data-table">
+        <tr><th style="width:100px">栏目</th><th>内容定位</th></tr>
+        <tr><td>宏观经济</td><td>宏观经济形势与政策实证研究</td></tr>
+        <tr><td>金融与财政</td><td>金融财政体制改革、资本市场</td></tr>
+        <tr><td>产业与区域发展</td><td>产业结构调整、区域比较研究</td></tr>
+        <tr><td>公共管理</td><td>公共管理理论与实证案例分析</td></tr>
+        <tr><td>工商管理</td><td>企业管理理论、案例研究</td></tr>
+        <tr><td>上市公司研究</td><td>上市公司与资本市场问题</td></tr>
+        <tr><td>理论述评</td><td>文献综述与理论梳理</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="icon">🔥</span> 2025 重点征稿方向</div></div>
+    <div>
+      <span class="tag tag-hot">新质生产力</span><span class="tag tag-hot">数字化转型</span>
+      <span class="tag tag-hot">双碳目标与产业转型</span><span class="tag tag-hot">人工智能驱动管理决策</span>
+      <span class="tag tag-hot">数字经济治理</span><span class="tag tag-hot">供应链安全</span>
+      <span class="tag tag-trend">中国管理学自主知识体系</span><span class="tag tag-trend">国企改革与本土创新</span>
+      <span class="tag tag-trend">共同富裕与区域协调</span><span class="tag tag-trend">人智交互与领导力</span>
+      <span class="tag tag-trend">ESG运营管理</span><span class="tag tag-trend">平台生态治理</span>
+      <span class="tag tag-normal">乡村振兴</span><span class="tag tag-normal">组织韧性</span>
+      <span class="tag tag-normal">智慧供应链</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="icon">📐</span> 研究方法偏好</div></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div>
+        <h4 style="color:var(--success);margin-bottom:8px;">✅ 欢迎的方法</h4>
+        <ul style="font-size:13px;line-height:2;padding-left:20px;">
+          <li>严谨的定量实证研究（主流）</li><li>高质量的案例研究（同样受青睐）</li>
+          <li>混合研究方法（大数据+传统问卷）</li><li>机器学习与计量经济学结合</li>
+          <li>跨学科交叉方法（神经管理学等）</li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="color:var(--danger);margin-bottom:8px;">⚠️ 注意事项</h4>
+        <ul style="font-size:13px;line-height:2;padding-left:20px;">
+          <li>不接受以本科生为实验对象</li><li>必须遵循严谨学术规范</li>
+          <li>审稿阶段可能要求提供原始数据</li><li>发表后需配合读者数据请求</li>
+          <li>方法必须与问题匹配</li>
+        </ul>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding:12px 16px;background:#FDF5F5;border-radius:var(--radius);font-size:13px;">
+      <strong>核心理念：</strong>"根据所研究的问题选取合适的方法，有效的方法就是好方法" ——《管理世界》编辑部
+    </div>
+  </div>
+</div>
+
+<!-- ====== TAB: 论文评分系统 ====== -->
+<div id="tab-scoring" class="hidden">
+
+  <div class="steps" id="scoreSteps">
+    <div class="step active" id="step1">① 上传论文</div>
+    <div class="step" id="step2">② AI 分析中</div>
+    <div class="step" id="step3">③ 评分结果</div>
+  </div>
+
+  <div id="uploadSection">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="icon">📤</span> 上传论文文档</div></div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">点击上传或拖拽论文到此处</div>
+        <div class="upload-hint">支持 .docx / .pdf / .txt 格式，文件大小不超过 20MB</div>
+        <input type="file" id="fileInput" accept=".docx,.pdf,.txt">
+      </div>
+      <div id="fileProcessStatus" class="hidden mt-16" style="padding:12px;background:#FFF8E8;border-radius:var(--radius);">
+        <span id="fileProcessText">正在解析文件...</span>
+        <div class="processing-bar"><div class="processing-bar-fill"></div></div>
+      </div>
+      <div id="fileInfo" class="hidden mt-16" style="padding:12px;background:#F5FFF7;border-radius:var(--radius);">
+        <div class="flex-between">
+          <span id="fileName" style="font-weight:600;"></span>
+          <button class="btn btn-outline btn-sm" onclick="resetScoring()">清除重选</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="textPreviewCard">
+      <div class="card-header"><div class="card-title"><span class="icon">📋</span> 论文文本（已解析的内容）</div></div>
+      <div class="text-stats" id="textStats">
+        <div class="text-stat-item"><div class="text-stat-val" id="statChars">--</div><div class="text-stat-lbl">总字符数</div></div>
+        <div class="text-stat-item"><div class="text-stat-val" id="statWords">--</div><div class="text-stat-lbl">中文字数</div></div>
+        <div class="text-stat-item"><div class="text-stat-val" id="statEnglish">--</div><div class="text-stat-lbl">英文词数</div></div>
+        <div class="text-stat-item"><div class="text-stat-val" id="statRefs">--</div><div class="text-stat-lbl">参考文献数</div></div>
+      </div>
+      <textarea id="paperText" placeholder="在此粘贴论文全文（包括标题、摘要、正文、参考文献）...或者上传文件后自动填充" style="width:100%;height:250px;border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.8;resize:vertical;font-family:'Songti SC','Noto Serif CJK SC','STSong','PingFang SC','Microsoft YaHei',serif;"></textarea>
+      <div class="flex-between mt-16">
+        <span style="font-size:12px;color:var(--text-secondary);">可以手动编辑文本内容后再分析</span>
+        <button class="btn btn-primary" onclick="startAnalysis()" id="btnStartAnalyze" disabled>开始分析</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="analyzingSection" class="hidden">
+    <div class="card text-center" style="padding:60px;">
+      <div style="font-size:48px;margin-bottom:16px;">⏳</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:8px;">正在深度分析论文...</div>
+      <div style="font-size:13px;color:var(--text-secondary);">正在从管理世界审稿人视角进行多维度评估</div>
+      <div style="margin-top:20px;">
+        <span id="analysisProgress" style="font-size:12px;color:var(--text-secondary);">初始化分析引擎...</span>
+        <div style="width:350px;height:4px;background:#F0EDE5;border-radius:2px;overflow:hidden;margin:10px auto 0;">
+          <div id="progressBar" style="height:100%;background:var(--primary);width:0%;border-radius:2px;transition:width 0.3s;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultSection" class="hidden">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="icon">🏆</span> 综合评分</div></div>
+      <div style="display:grid; grid-template-columns:220px 1fr; gap:24px;align-items:center;">
+        <div>
+          <div class="score-circle" id="scoreCircle">
+            <span class="score-num" id="totalScore">--</span>
+            <span class="score-label">总分 / 100</span>
+          </div>
+          <div class="score-grade" id="scoreGrade"></div>
+        </div>
+        <div class="radar-wrap"><canvas id="radarChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="icon">📊</span> 各维度评分详情</div></div>
+      <div class="dim-list" id="dimensionScores"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="icon">🔍</span> 审稿人视角详细评价</div></div>
+      <div id="reviewerComments"></div>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-top:16px;">
+      <button class="btn btn-outline" onclick="resetScoring()">重新分析</button>
+      <button class="btn btn-primary" onclick="switchTab('revision')">查看修改建议 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== TAB: 修改建议中心 ====== -->
+<div id="tab-revision" class="hidden">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="icon">🔧</span> 分部分修改建议</div>
+      <span style="font-size:12px;color:var(--text-secondary);">基于管理世界审稿标准生成</span>
+    </div>
+    <div class="tabs" style="border-bottom:1px solid var(--border);margin-bottom:16px;">
+      <button class="tab-btn active" onclick="switchRevisionTab('title', event)">标题与摘要</button>
+      <button class="tab-btn" onclick="switchRevisionTab('intro', event)">引言与文献</button>
+      <button class="tab-btn" onclick="switchRevisionTab('method', event)">研究设计</button>
+      <button class="tab-btn" onclick="switchRevisionTab('analysis', event)">实证分析</button>
+      <button class="tab-btn" onclick="switchRevisionTab('conclusion', event)">结论与建议</button>
+      <button class="tab-btn" onclick="switchRevisionTab('format', event)">格式规范</button>
+    </div>
+    <div id="revisionContent">
+      <div style="text-align:center;padding:60px;color:var(--text-secondary);">
+        <div style="font-size:48px;margin-bottom:12px;">📝</div>
+        <div>请先在"论文评分系统"中上传并分析论文，<br>修改建议将根据评分结果自动生成</div>
+        <button class="btn btn-primary mt-16" onclick="switchTab('scoring')">前往评分</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== TAB: 投稿自检清单 ====== -->
+<div id="tab-checklist" class="hidden">
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="icon">✅</span> 投稿前自检清单</div></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" id="checklistGrid"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="icon">📋</span> 投稿流程与时间规划</div></div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+      <div style="text-align:center;padding:20px;background:#FDF5F5;border-radius:var(--radius);">
+        <div style="font-size:24px;font-weight:900;color:var(--primary);">① 初审</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">1-2周</div>
+        <div style="font-size:12px;color:#999;margin-top:4px;">格式规范 · 查重 · 学术价值</div>
+        <div style="font-size:18px;font-weight:700;color:var(--warning);margin-top:8px;">通过率 ~35%</div>
+      </div>
+      <div style="text-align:center;padding:20px;background:#FFFDF5;border-radius:var(--radius);">
+        <div style="font-size:24px;font-weight:900;color:var(--warning);">② 外审</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">4-6周</div>
+        <div style="font-size:12px;color:#999;margin-top:4px;">2-3位专家匿名评审</div>
+        <div style="font-size:18px;font-weight:700;color:var(--warning);margin-top:8px;">通过率 ~22%</div>
+      </div>
+      <div style="text-align:center;padding:20px;background:#F5FFF7;border-radius:var(--radius);">
+        <div style="font-size:24px;font-weight:900;color:var(--success);">③ 终审</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">2-3周</div>
+        <div style="font-size:12px;color:#999;margin-top:4px;">主编综合评定</div>
+        <div style="font-size:18px;font-weight:700;color:var(--success);margin-top:8px;">录用率 ~15%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== TAB: 选题趋势分析 ====== -->
+<div id="tab-topics" class="hidden">
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="icon">🎯</span> 选题热度趋势（2024-2025）</div></div>
+    <div style="display:grid; grid-template-columns:2fr 1fr; gap:20px;">
+      <div style="position:relative;height:320px;"><canvas id="topicTrendChart"></canvas></div>
+      <div style="font-size:13px;line-height:2;">
+        <h4 style="margin-bottom:8px;">选题核心原则</h4>
+        <p>🔹 <strong>问题导向</strong>：围绕中国现实经济管理问题</p>
+        <p>🔹 <strong>本土特色</strong>：研究中国问题，讲好中国故事</p>
+        <p>🔹 <strong>小题大做</strong>：切口小、纵深大</p>
+        <p>🔹 <strong>辨清理论</strong>：清晰的理论对话点</p>
+        <p>🔹 <strong>双支点</strong>：理论贡献 + 政策价值</p>
+        <p style="color:var(--danger);margin-top:8px;">⚠️ 不鼓励：用中国数据重复国外研究</p>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="icon">📈</span> 近期征文活动</div></div>
+    <table class="data-table">
+      <tr><th>征文主题</th><th>合作单位</th><th>截止日期</th></tr>
+      <tr><td>面向新质生产力的数智跃迁——管理科学与工程的新使命</td><td>清华大学经济管理学院</td><td>2025年10月15日</td></tr>
+      <tr><td>数智化转型与中国式管理</td><td>中山大学管理学院</td><td>2025年7月30日</td></tr>
+    </table>
+  </div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /main-layout -->
+
+<script>
+// ==================== GLOBAL STATE ====================
+let currentTab = 'dashboard';
+let analysisResult = null;
+let radarChartInstance = null;
+let topicChartInstance = null;
+let extractedPaperText = '';
+
+// ==================== SCORING DIMENSIONS ====================
+const SCORING_DIMENSIONS = [
+  { id:'topic_value', name:'选题价值', weight:25, desc:'是否围绕中国现实经济管理问题，具备鲜明的问题导向和本土化特色' },
+  { id:'originality', name:'原创性与学术贡献', weight:25, desc:'相对于已有文献的边际贡献，杜绝简单数据搬运' },
+  { id:'methodology', name:'研究设计严谨性', weight:20, desc:'研究方法选取恰当，数据可靠，分析规范' },
+  { id:'literature', name:'文献对话与理论深度', weight:15, desc:'文献综述具有学理性，近5年文献占比≥40%' },
+  { id:'format', name:'格式规范性', weight:10, desc:'字数、摘要、参考文献格式等符合要求' },
+  { id:'policy_value', name:'政策与实践价值', weight:5, desc:'理论顶天、实践立地' },
+];
+
+const CHECKLIST_ITEMS = [
+  { category:'选题', items:['是否围绕中国本土现实经济管理问题？','选题是否做到"小题大做"（切口小、纵深大）？','是否避免简单以中国数据重复国外研究？','是否查阅《管理世界》近3年目录确认选题方向？'] },
+  { category:'结构与字数', items:['正文字数是否在 18,000-25,000 字之间？','中文摘要是否包含"研究问题-方法-结论"三要素（400-500字）？','英文摘要是否完整（300-400字）？','关键词是否为3-6个？'] },
+  { category:'文献与理论', items:['近5年参考文献占比是否≥40%？','文献综述是否具备学理性梳理（而非简单罗列）？','是否在文中明确说明文章的学术贡献？','参考文献格式是否使用顺序编码制？'] },
+  { category:'方法与数据', items:['研究方法是否遵循严谨学术规范？','数据来源是否可靠、样本是否具有代表性？','是否准备好原始数据与代码（审稿时可能要求提供）？','实验对象是否为非本科生（如适用）？'] },
+  { category:'格式与图表', items:['图表是否采用矢量格式（分辨率≥300dpi）？','图表编号是否规范且具备自明性？','作者信息是否完整（姓名、单位、职称、学历、研究方向）？','是否准备好作者信息表、伦理审查证明等补充材料？'] },
+  { category:'投稿准备', items:['是否已在官网（http://www.mwm.net.cn/）实名注册？','是否确认无重复投稿（违规者10年内拒稿）？','是否理解审稿周期为58-60个工作日？','是否已将版权转让事宜纳入考虑？'] },
+];
+
+// ==================== INIT ====================
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('updateTime').textContent = new Date().toLocaleDateString('zh-CN');
+  renderChecklist();
+  initTopicChart();
+  initFileUpload();
+});
+
+function initFileUpload() {
+  var fileInput = document.getElementById('fileInput');
+  var uploadZone = document.getElementById('uploadZone');
+
+  fileInput.addEventListener('change', function(e) {
+    if (e.target.files.length) handleFile(e.target.files[0]);
+  });
+
+  uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+  uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('drag-over'); });
+  uploadZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+}
+
+// ==================== TAB SWITCHING ====================
+function switchTab(tab) {
+  currentTab = tab;
+  var allTabs = document.querySelectorAll('[id^="tab-"]');
+  for (var i = 0; i < allTabs.length; i++) {
+    allTabs[i].classList.add('hidden');
+  }
+  var target = document.getElementById('tab-' + tab);
+  if (target) target.classList.remove('hidden');
+
+  var allNav = document.querySelectorAll('.sidebar-nav a');
+  for (var j = 0; j < allNav.length; j++) {
+    allNav[j].classList.remove('active');
+  }
+  var navTarget = document.getElementById('nav-' + tab);
+  if (navTarget) navTarget.classList.add('active');
+
+  // Re-render topic chart when switching to topics tab (fixes canvas sizing)
+  if (tab === 'topics' && topicChartInstance) {
+    setTimeout(function() { topicChartInstance.resize(); }, 100);
+  }
+}
+
+// ==================== FILE HANDLING (CORE FIX) ====================
+function handleFile(file) {
+  var ext = file.name.split('.').pop().toLowerCase();
+
+  if (['docx','pdf','txt'].indexOf(ext) === -1) {
+    alert('仅支持 .docx / .pdf / .txt 格式');
+    return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    alert('文件大小不能超过 20MB');
+    return;
+  }
+
+  // Show processing status
+  document.getElementById('fileProcessStatus').classList.remove('hidden');
+  document.getElementById('fileProcessText').textContent = '正在解析 ' + file.name + ' ...';
+  document.getElementById('fileInfo').classList.add('hidden');
+  document.getElementById('btnStartAnalyze').disabled = true;
+
+  if (ext === 'txt') {
+    parseTxtFile(file);
+  } else if (ext === 'docx') {
+    parseDocxFile(file);
+  } else if (ext === 'pdf') {
+    parsePdfFile(file);
+  }
+}
+
+function parseTxtFile(file) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var text = e.target.result;
+    onFileParsed(file, text);
+  };
+  reader.onerror = function() {
+    alert('文件读取失败，请尝试粘贴文本内容');
+    document.getElementById('fileProcessStatus').classList.add('hidden');
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseDocxFile(file) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var arrayBuffer = e.target.result;
+    mammoth.extractRawText({ arrayBuffer: arrayBuffer })
+      .then(function(result) {
+        onFileParsed(file, result.value);
+      })
+      .catch(function(err) {
+        alert('DOCX解析失败: ' + err.message + '。请尝试粘贴文本内容');
+        document.getElementById('fileProcessStatus').classList.add('hidden');
+      });
+  };
+  reader.onerror = function() {
+    alert('文件读取失败，请尝试粘贴文本内容');
+    document.getElementById('fileProcessStatus').classList.add('hidden');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parsePdfFile(file) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var typedArray = new Uint8Array(e.target.result);
+    pdfjsLib.getDocument({ data: typedArray }).promise
+      .then(function(pdf) {
+        var numPages = pdf.numPages;
+        var pagesText = [];
+        var loadedCount = 0;
+
+        function loadPage(pageNum) {
+          pdf.getPage(pageNum).then(function(page) {
+            page.getTextContent().then(function(textContent) {
+              var pageText = '';
+              var lastY = null;
+              textContent.items.forEach(function(item) {
+                // Reconstruct paragraphs by tracking Y position
+                if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+                  pageText += '\n';
+                } else if (pageText.length > 0 && lastY !== null) {
+                  pageText += ' ';
+                }
+                pageText += item.str;
+                lastY = item.transform[5];
+              });
+              pagesText[pageNum - 1] = pageText;
+              loadedCount++;
+
+              if (loadedCount === numPages) {
+                onFileParsed(file, pagesText.join('\n\n'));
+              }
+            });
+          }).catch(function(err) {
+            loadedCount++;
+            pagesText[pageNum - 1] = '[第' + pageNum + '页解析失败]';
+            if (loadedCount === numPages) {
+              onFileParsed(file, pagesText.join('\n\n'));
+            }
+          });
+        }
+
+        for (var p = 1; p <= numPages; p++) {
+          loadPage(p);
+        }
+      })
+      .catch(function(err) {
+        alert('PDF解析失败: ' + err.message + '。请尝试粘贴文本内容');
+        document.getElementById('fileProcessStatus').classList.add('hidden');
+      });
+  };
+  reader.onerror = function() {
+    alert('文件读取失败，请尝试粘贴文本内容');
+    document.getElementById('fileProcessStatus').classList.add('hidden');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function onFileParsed(file, text) {
+  extractedPaperText = text.trim();
+
+  document.getElementById('fileProcessStatus').classList.add('hidden');
+
+  if (!extractedPaperText || extractedPaperText.length < 50) {
+    alert('文件内容过短（仅' + extractedPaperText.length + '字符），可能解析不完整。请尝试粘贴文本内容，或检查文件格式。');
+    document.getElementById('paperText').value = extractedPaperText;
+    updateTextStats(extractedPaperText);
+    document.getElementById('btnStartAnalyze').disabled = extractedPaperText.length < 100;
+    return;
+  }
+
+  // Populate textarea
+  document.getElementById('paperText').value = extractedPaperText;
+
+  // Update file info
+  document.getElementById('fileName').textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+  document.getElementById('fileInfo').classList.remove('hidden');
+
+  // Update text statistics
+  updateTextStats(extractedPaperText);
+
+  // Enable analyze button
+  document.getElementById('btnStartAnalyze').disabled = false;
+
+  // Store filename for display
+  document.getElementById('fileName').setAttribute('data-filename', file.name);
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+// ==================== TEXT STATISTICS ====================
+function countChineseChars(text) {
+  var matches = text.match(/[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f\uff00-\uffef]/g);
+  return matches ? matches.length : 0;
+}
+
+function countEnglishWords(text) {
+  var matches = text.match(/[a-zA-Z]+/g);
+  return matches ? matches.length : 0;
+}
+
+function countReferences(text) {
+  // Match [1], [2-3], [1,2,3] etc.
+  var bracketRefs = text.match(/\[\d+(?:[-,]\d+)*\]/g);
+  // Match (Author, Year) patterns
+  var parenRefs = text.match(/\([A-Z][a-z]+(?:\s+(?:&|and)\s+[A-Z][a-z]+)?,\s*\d{4}[a-z]?\)/g);
+  var count = (bracketRefs ? new Set(bracketRefs).size : 0) + (parenRefs ? new Set(parenRefs).size : 0);
+
+  // Also count 参考文献 section entries
+  var refSection = text.match(/参考文献[\s\S]*$/);
+  if (refSection) {
+    var refLines = refSection[0].match(/\[\d+\]/g);
+    if (refLines) count = Math.max(count, refLines.length);
+  }
+
+  return count;
+}
+
+function updateTextStats(text) {
+  document.getElementById('statChars').textContent = text.length.toLocaleString();
+  document.getElementById('statWords').textContent = countChineseChars(text).toLocaleString();
+  document.getElementById('statEnglish').textContent = countEnglishWords(text).toLocaleString();
+  document.getElementById('statRefs').textContent = countReferences(text).toLocaleString();
+
+  // Auto-enable button if there's enough text
+  document.getElementById('btnStartAnalyze').disabled = text.trim().length < 100;
+}
+
+// Monitor textarea changes for manual paste
+document.addEventListener('DOMContentLoaded', function() {
+  var textArea = document.getElementById('paperText');
+  if (textArea) {
+    textArea.addEventListener('input', function() {
+      updateTextStats(this.value);
+    });
+  }
+});
+
+// ==================== ANALYSIS ENGINE ====================
+function startAnalysis() {
+  var paperText = document.getElementById('paperText').value.trim();
+
+  if (!paperText || paperText.length < 100) {
+    alert('论文文本内容不足（少于100字符）。请确认已上传文件并完成解析，或手动粘贴论文内容。');
+    return;
+  }
+
+  // Reset to upload state but keep text in textarea
+  document.getElementById('uploadSection').classList.add('hidden');
+  document.getElementById('analyzingSection').classList.remove('hidden');
+  document.getElementById('resultSection').classList.add('hidden');
+
+  document.getElementById('step1').classList.remove('active');
+  document.getElementById('step1').classList.add('done');
+  document.getElementById('step2').classList.add('active');
+  document.getElementById('step2').classList.remove('done');
+  document.getElementById('step3').classList.remove('active', 'done');
+
+  simulateAnalysis(paperText);
+}
+
+function simulateAnalysis(text) {
+  var progressBar = document.getElementById('progressBar');
+  var progressText = document.getElementById('analysisProgress');
+  var stages = [
+    { w:15, t:'正在解析论文结构（字数：' + countChineseChars(text).toLocaleString() + '字）...', d:300 },
+    { w:30, t:'正在识别选题方向与政策关联...', d:400 },
+    { w:50, t:'正在评估研究方法严谨性...', d:500 },
+    { w:70, t:'正在分析文献对话与理论深度...', d:500 },
+    { w:85, t:'正在检查格式规范性...', d:400 },
+    { w:95, t:'正在生成审稿人视角评价...', d:500 },
+    { w:100, t:'分析完成，生成报告中...', d:300 },
+  ];
+
+  var i = 0;
+  function next() {
+    if (i < stages.length) {
+      progressBar.style.width = stages[i].w + '%';
+      progressText.textContent = stages[i].t;
+      i++;
+      setTimeout(next, stages[i-1].d);
+    } else {
+      setTimeout(showResults, 400);
+    }
+  }
+  next();
+}
+
+function showResults() {
+  document.getElementById('analyzingSection').classList.add('hidden');
+  document.getElementById('resultSection').classList.remove('hidden');
+
+  document.getElementById('step2').classList.remove('active');
+  document.getElementById('step2').classList.add('done');
+  document.getElementById('step3').classList.add('active');
+
+  var text = document.getElementById('paperText').value;
+  analysisResult = analyzePaper(text);
+  renderResults(analysisResult);
+}
+
+// ==================== PAPER ANALYSIS ALGORITHM ====================
+function analyzePaper(text) {
+  var scores = {};
+  var details = {};
+  var suggestions = [];
+
+  // ---- Core metrics ----
+  var chineseChars = countChineseChars(text);
+  var englishWords = countEnglishWords(text);
+  var totalWords = chineseChars + englishWords;
+  var refCount = countReferences(text);
+
+  // Structure detection
+  var hasTitle = text.length > 0; // always true if text exists
+  var hasAbstract = /摘要[：:\s]*/.test(text) && chineseChars > 200;
+  var hasAbstractEn = /abstract[:：\s]/i.test(text);
+  var hasKeywords = /关键词[：:\s]/.test(text) || /keywords[：:\s]/i.test(text);
+  var hasIntro = /(引言|绪论|问题的提出|研究背景|一[、.])/.test(text);
+  var hasLitReview = /(文献综述|文献回顾|理论回顾|理论基础|理论分析|文献.*梳理|二[、.]|三[、.])/.test(text);
+  var hasMethod = /(研究设计|研究方法|数据来源|样本.*选择|变量.*定义|模型.*设定|实证.*设计)/.test(text);
+  var hasEmpirical = /(实证.*结果|回归.*结果|描述性.*统计|相关性.*分析|回归.*分析|假说.*检验|稳健性.*检验|内生性.*处理)/.test(text);
+  var hasConclusion = /(结论|研究.*结论|政策.*建议|研究.*启示|研究.*展望|研究.*不足)/.test(text);
+  var hasRefs = /参考文献/.test(text);
+
+  // Topic keywords
+  var topicKeywords = {
+    '新质生产力':10, '数字化转型':10, '数字经济':9, '人工智能':9,
+    '双碳':9, '碳中和':9, 'ESG':8, '供应链':8, '共同富裕':8,
+    '国企改革':7, '乡村振兴':7, '平台经济':8, '产业链':8,
+    '组织韧性':7, '领导力':6, '数据驱动':8, '国民经济':6,
+    '宏观调控':7, '上市公司':7, '资本市场':7, '产业升级':7,
+    '区域协调':7, '绿色':6, '可持续':6, '治理体系':6,
+    '中国式现代化':8, '高质量发展':8, '新质生产力':10,
+    '制造业':6, '服务业':6, '民营企业':7, '中小企业':6,
+  };
+  var matchedTopics = [];
+  for (var kw in topicKeywords) {
+    if (text.indexOf(kw) !== -1) matchedTopics.push(kw);
+  }
+  // Remove duplicates
+  matchedTopics = matchedTopics.filter(function(v, i, a) { return a.indexOf(v) === i; });
+
+  // ---- 1. Topic Value (25) ----
+  var topicScore = 0;
+  if (matchedTopics.length >= 5) topicScore += 10;
+  else if (matchedTopics.length >= 3) topicScore += 7;
+  else if (matchedTopics.length >= 1) topicScore += 3;
+  if ((text.indexOf('中国') !== -1 || text.indexOf('我国') !== -1) && matchedTopics.length >= 2) topicScore += 7;
+  else if (text.indexOf('中国') !== -1 || text.indexOf('我国') !== -1) topicScore += 3;
+  if (/政策建议|政策启示|政策含义|治理建议|政策.*启示/.test(text)) topicScore += 5;
+  var hotTopics = matchedTopics.filter(function(t) {
+    return ['新质生产力','数字化转型','数字经济','双碳','人工智能','供应链安全'].indexOf(t) !== -1;
+  });
+  if (hotTopics.length >= 2) topicScore += 3;
+  scores.topic_value = Math.min(25, topicScore);
+
+  // ---- 2. Originality (25) ----
+  var originalityScore = 8;
+  if (/学术贡献|边际贡献|理论贡献|本文.*贡献|本研究.*贡献|创新.*点/.test(text)) originalityScore += 8;
+  if (/不同于|区别于|与.*不同|首次|率先|新发现|拓展了|丰富了|弥补了/.test(text)) originalityScore += 5;
+  if (!/借鉴.*国外|复制.*国外|重复.*国外/.test(text)) originalityScore += 2;
+  if ((text.indexOf('中国') !== -1 || text.indexOf('我国') !== -1) && /理论.*框架|分析.*框架|概念.*模型/.test(text)) originalityScore += 2;
+  scores.originality = Math.min(25, originalityScore);
+
+  // ---- 3. Methodology (20) ----
+  var methodologyScore = 6;
+  if (hasMethod) methodologyScore += 5;
+  if (/回归|面板|双重差分|DID|工具变量|IV|随机.*实验|准实验|PSM|倾向.*得分|固定效应|随机效应|Heckman|断点.*回归/i.test(text)) methodologyScore += 5;
+  if (/数据.*来源|样本.*量|样本.*份|观测值|描述性统计/i.test(text)) methodologyScore += 2;
+  if (/稳健性|内生性|安慰剂|平行趋势|异质性|机制.*检验|中介.*效应|调节.*效应/i.test(text)) methodologyScore += 2;
+  scores.methodology = Math.min(20, methodologyScore);
+
+  // ---- 4. Literature (15) ----
+  var literatureScore = 4;
+  if (hasLitReview) literatureScore += 3;
+  if (/文献.*梳理|文献.*评述|已有研究.*不足|现有.*局限|然而.*研究|但是.*研究/.test(text)) literatureScore += 4;
+  if (refCount >= 30) literatureScore += 4;
+  else if (refCount >= 15) literatureScore += 2;
+  scores.literature = Math.min(15, literatureScore);
+
+  // ---- 5. Format (10) ----
+  var formatScore = 0;
+  if (totalWords >= 18000) formatScore += 4;
+  else if (totalWords >= 15000) formatScore += 3;
+  else if (totalWords >= 10000) formatScore += 1;
+  if (hasAbstract) formatScore += 2;
+  if (hasKeywords) formatScore += 1;
+  if (hasRefs) formatScore += 2;
+  if (hasAbstractEn) formatScore += 1;
+  scores.format = Math.min(10, formatScore);
+
+  // ---- 6. Policy Value (5) ----
+  var policyScore = 0;
+  if (/政策建议|政策启示|政策含义|政策.*启示/.test(text)) policyScore += 3;
+  if (/管理启示|实践启示|管理建议|企业.*建议|治理建议/.test(text)) policyScore += 2;
+  scores.policy_value = Math.min(5, policyScore);
+
+  var totalScore = 0;
+  for (var k in scores) { totalScore += scores[k]; }
+
+  // ---- Generate suggestions ----
+  if (scores.topic_value < 14) {
+    suggestions.push({ level:'critical', section:'选题价值', title:'选题与期刊定位匹配度不足', detail:'当前选题与《管理世界》重点关注方向匹配度较低。建议：① 将研究问题与中国本土重大经济管理议题深度绑定；② 关注新质生产力、数字化转型、双碳目标、数字经济治理等热点方向；③ 选题应做到"小题大做"——切口小而精准，理论纵深大。' });
+  } else if (scores.topic_value >= 20) {
+    suggestions.push({ level:'good', section:'选题价值', title:'选题方向良好', detail:'选题紧密围绕中国现实经济管理问题，与《管理世界》办刊方向一致。建议进一步聚焦具体研究切口，强化选题的"小中见大"。' });
+  } else {
+    suggestions.push({ level:'critical', section:'选题价值', title:'选题方向需要进一步聚焦', detail:'选题有一定基础，但与中国本土问题的关联度还可加强。建议明确阐述"为什么要在中国情境下研究这个问题"以及"中国情境的特殊性在何处"。' });
+  }
+
+  if (scores.originality < 15) {
+    suggestions.push({ level:'critical', section:'原创性', title:'学术贡献表述不够清晰', detail:'需要在引言或文献综述部分明确阐述"本文相较于已有文献的边际贡献（2-3点）"。《管理世界》非常强调这一点的清晰表述。特别注意避免用中国数据简单重复国外已有研究的做法。' });
+  } else if (scores.originality >= 20) {
+    suggestions.push({ level:'good', section:'原创性', title:'学术贡献表述较好', detail:'文章已较好地说明了相对于已有文献的学术贡献。建议在结论部分再次强化贡献表述，与引言形成呼应。' });
+  } else {
+    suggestions.push({ level:'critical', section:'原创性', title:'学术贡献需要更明确', detail:'建议在引言末尾用一段话专门说明"本文可能的边际贡献"，包括理论贡献和方法贡献。' });
+  }
+
+  if (scores.methodology < 13) {
+    suggestions.push({ level:'critical', section:'研究设计', title:'研究方法需要加强', detail:'建议：① 明确说明数据来源、样本筛选过程及其代表性；② 如使用定量方法，需包含稳健性检验、内生性处理、机制分析等；③ 实验研究不得以本科生为对象；④ 建议准备原始数据与代码以备审稿时提供。' });
+  } else if (scores.methodology >= 17) {
+    suggestions.push({ level:'good', section:'研究设计', title:'研究方法较为严谨', detail:'研究设计规范，方法选取合理。建议确保稳健性检验、内生性处理、机制分析等已完整覆盖。' });
+  } else {
+    suggestions.push({ level:'critical', section:'研究设计', title:'研究方法可进一步完善', detail:'建议补充：描述性统计表格、相关性分析、以及至少一种稳健性检验方法。' });
+  }
+
+  if (scores.literature < 10) {
+    suggestions.push({ level:'critical', section:'文献综述', title:'文献综述需要深化学理性', detail:'《管理世界》要求文献综述具备"学理性梳理"而非简单罗列。建议：① 按理论脉络组织文献（非时间顺序）；② 明确指出现有研究的不足和本研究的理论对话点；③ 确保近5年文献占比≥40%；④ 参考文献建议40-80条。当前检测到约' + refCount + '条参考文献。' });
+  } else if (scores.literature >= 12) {
+    suggestions.push({ level:'good', section:'文献综述', title:'文献综述较为扎实', detail:'文献综述形成了较好的理论对话框架（检测到约' + refCount + '条参考文献）。建议检查近5年文献占比是否≥40%。' });
+  } else {
+    suggestions.push({ level:'critical', section:'文献综述', title:'文献综述需要拓展', detail:'当前检测到约' + refCount + '条参考文献，建议增加到40条以上，并确保近5年文献占比≥40%。文献综述不应是简单罗列，而应形成有逻辑的学理性梳理。' });
+  }
+
+  if (scores.format < 7) {
+    suggestions.push({ level:'critical', section:'格式规范', title:'格式存在较多问题', detail:'当前字数约' + totalWords.toLocaleString() + '字' + (totalWords < 18000 ? '（未达到18,000字的最低要求，需补充约' + (18000 - totalWords).toLocaleString() + '字）' : '（已达到最低要求）') + '。建议：① 正文字数18,000-25,000字；② 中文摘要400-500字（含研究问题-方法-结论三要素）；③ 英文摘要300-400字；④ 参考文献采用顺序编码制（文尾注）。' });
+  } else if (scores.format >= 8) {
+    suggestions.push({ level:'good', section:'格式规范', title:'格式基本规范', detail:'格式大体符合要求（字数约' + totalWords.toLocaleString() + '字）。建议对照《管理世界》官网格式模板逐项检查，特别注意参考文献格式和图表规范。' });
+  } else {
+    suggestions.push({ level:'critical', section:'格式规范', title:'格式需要完善', detail:'当前字数约' + totalWords.toLocaleString() + '字。建议确认：正文字数达到18,000字最低要求、中英文摘要完整（各400字左右）、参考文献格式为顺序编码制。' });
+  }
+
+  if (scores.policy_value < 3) {
+    suggestions.push({ level:'critical', section:'政策价值', title:'政策建议部分需要强化', detail:'《管理世界》强调"理论顶天、实践立地"。建议在结论部分增加具体、可操作的政策建议或管理实践启示。避免空泛的拼凑式建议，确保与研究发现紧密关联。' });
+  } else if (scores.policy_value >= 4) {
+    suggestions.push({ level:'good', section:'政策价值', title:'政策建议较为充实', detail:'建议确保政策/管理建议具体、可操作，且与研究发现紧密关联，避免"万能模板式"表述。' });
+  } else {
+    suggestions.push({ level:'critical', section:'政策价值', title:'政策建议需要补充', detail:'建议在结论部分增加至少2-3条具体的政策建议或管理启示，每条建议应直接源于研究结论。' });
+  }
+
+  // Overall assessment
+  if (totalScore < 60) {
+    suggestions.unshift({ level:'critical', section:'综合', title:'综合评估：需要重大修改（总分' + totalScore + '/100）', detail:'当前版本与《管理世界》的发表标准存在较大差距。核心问题可能在于：选题与中国本土问题的关联、学术贡献的清晰表述、研究方法的严谨性。建议对照自检清单进行系统性修改，预计需要4-8周。' });
+  } else if (totalScore < 75) {
+    suggestions.unshift({ level:'critical', section:'综合', title:'综合评估：需要中等修改（总分' + totalScore + '/100）', detail:'文章有一定基础，但在若干关键维度上还需加强。优先改进得分最低的2-3个维度，然后逐项对照投稿自检清单完善。修改后有望进入外审。预计需要2-4周。' });
+  } else if (totalScore < 85) {
+    suggestions.unshift({ level:'critical', section:'综合', title:'综合评估：需要小幅修改（总分' + totalScore + '/100）', detail:'文章整体质量较好，接近《管理世界》的发表标准。主要需要完善细节：强化格式规范、深化学术贡献表述、补充稳健性检验等。修改后大概率可进入外审。预计需要1-2周。' });
+  } else {
+    suggestions.unshift({ level:'good', section:'综合', title:'综合评估：达到投稿标准（总分' + totalScore + '/100）', detail:'文章质量较高，各维度均达到或接近《管理世界》要求。建议完成最后的格式检查和投稿材料准备后尽快投稿。注意《管理世界》录用率仅约8-15%，在投稿系统中需实名注册，网址：http://www.mwm.net.cn/' });
+  }
+
+  details.topic_value = { matchedTopics:matchedTopics.slice(0,8), hotCount:hotTopics.length };
+  details.originality = { hasContributionStmt:/学术贡献|边际贡献|本文.*贡献|本研究.*贡献/.test(text) };
+  details.methodology = { hasMethodSection:hasMethod, hasRobustness:/稳健性|内生性|安慰剂/i.test(text) };
+  details.literature = { hasReviewSection:hasLitReview, refCount:refCount };
+  details.format = { totalWords:totalWords, chineseChars:chineseChars, englishWords:englishWords, meetsWordMin:totalWords>=18000, hasAbstract:hasAbstract, hasKeywords:hasKeywords, hasRefs:hasRefs };
+  details.policy_value = { hasPolicySection:/政策建议|政策启示|政策含义/.test(text) };
+
+  return { scores:scores, details:details, suggestions:suggestions, totalScore:totalScore, matchedTopics:matchedTopics };
+}
+
+// ==================== RENDER RESULTS ====================
+function renderResults(result) {
+  var scores = result.scores, suggestions = result.suggestions, totalScore = result.totalScore;
+
+  document.getElementById('totalScore').textContent = totalScore;
+  var circle = document.getElementById('scoreCircle');
+  var gradeText = '', gradeColor = '';
+  if (totalScore >= 85) { gradeText = '达到投稿标准'; gradeColor = 'var(--success)'; circle.style.borderColor = 'var(--success)'; }
+  else if (totalScore >= 75) { gradeText = '小幅修改后可投稿'; gradeColor = '#B8860B'; circle.style.borderColor = '#B8860B'; }
+  else if (totalScore >= 60) { gradeText = '需要中等修改'; gradeColor = 'var(--warning)'; circle.style.borderColor = 'var(--warning)'; }
+  else { gradeText = '需要重大修改'; gradeColor = 'var(--danger)'; circle.style.borderColor = 'var(--danger)'; }
+  document.getElementById('scoreGrade').innerHTML = '<span style="color:' + gradeColor + ';font-size:16px;">' + gradeText + '</span>';
+  circle.querySelector('.score-num').style.color = gradeColor;
+
+  renderRadarChart(scores);
+
+  var dimHtml = '';
+  SCORING_DIMENSIONS.forEach(function(dim) {
+    var score = scores[dim.id];
+    var maxScore = dim.weight;
+    var pct = score / maxScore * 100;
+    var barColor = pct >= 80 ? 'var(--success)' : pct >= 60 ? '#B8860B' : pct >= 40 ? 'var(--warning)' : 'var(--danger)';
+    dimHtml += '<div class="dim-item">' +
+      '<div class="dim-label">' + dim.name + '<br><span style="font-size:10px;color:#999;">权重 ' + maxScore + '分 | ' + dim.desc + '</span></div>' +
+      '<div class="dim-bar-wrap"><div class="dim-bar-fill" style="width:' + pct + '%;background:' + barColor + ';">' + (pct >= 20 ? Math.round(pct) + '%' : '') + '</div></div>' +
+      '<div class="dim-score" style="color:' + barColor + '">' + score + '/' + maxScore + '</div>' +
+      '</div>';
+  });
+  document.getElementById('dimensionScores').innerHTML = dimHtml;
+
+  var commentsHtml = '';
+  suggestions.forEach(function(sug) {
+    commentsHtml += '<div class="suggestion-card ' + sug.level + '"><div class="sug-title">' +
+      (sug.level === 'good' ? '✅ ' : '⚠️ ') + '[' + sug.section + '] ' + sug.title +
+      '</div><div class="sug-detail">' + sug.detail + '</div></div>';
+  });
+  document.getElementById('reviewerComments').innerHTML = commentsHtml;
+
+  renderRevisionSuggestions(suggestions);
+}
+
+// ==================== RADAR CHART ====================
+function renderRadarChart(scores) {
+  if (radarChartInstance) radarChartInstance.destroy();
+  var ctx = document.getElementById('radarChart').getContext('2d');
+  var labels = SCORING_DIMENSIONS.map(function(d) { return d.name; });
+  var data = SCORING_DIMENSIONS.map(function(d) { return Math.round(scores[d.id] / d.weight * 100); });
+
+  radarChartInstance = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '你的论文', data: data,
+        borderColor: '#8B1A1A', backgroundColor: 'rgba(139,26,26,0.08)',
+        borderWidth: 2.5, pointBackgroundColor: '#8B1A1A', pointBorderColor: '#fff',
+        pointRadius: 5, pointHoverRadius: 7,
+      }, {
+        label: '管理世界基准线', data: [70,70,70,70,70,70],
+        borderColor: '#C5A55A', backgroundColor: 'rgba(197,165,90,0.04)',
+        borderWidth: 1.5, borderDash: [5,5], pointRadius: 0,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      scales: { r: { beginAtZero:true, max:100, ticks:{ stepSize:20, font:{ size:10 }, backdropColor:'transparent' }, pointLabels:{ font:{ size:11, weight:'600' } } } },
+      plugins: { legend: { position:'bottom', labels:{ font:{ size:12 }, usePointStyle:true } } }
+    }
+  });
+}
+
+// ==================== REVISION SUGGESTIONS ====================
+function renderRevisionSuggestions(suggestions) {
+  var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+  suggestions.forEach(function(sug) {
+    var icon = sug.level === 'good' ? '✅' : '⚠️';
+    html += '<div class="suggestion-card ' + sug.level + '"><div class="sug-title">' + icon + ' [' + sug.section + '] ' + sug.title + '</div><div class="sug-detail">' + sug.detail + '</div></div>';
+  });
+  html += '</div>';
+  html += '<div style="margin-top:20px;padding:16px;background:#FDF5F5;border-radius:var(--radius);font-size:13px;"><strong>📌 修改优先级建议：</strong><br>① 选题定位 → ② 学术贡献表述 → ③ 文献综述深化 → ④ 研究方法完善 → ⑤ 政策建议强化 → ⑥ 格式规范调整</div>';
+  html += '<div style="margin-top:12px;padding:16px;background:#F5FFF7;border-radius:var(--radius);font-size:13px;"><strong>🕐 修改时间建议：</strong> 重大修改预留4-8周；中等修改2-4周；小幅修改1-2周<br><strong>📧 投稿后跟进：</strong>超60个工作日无回复可致电 010-62112235 查询<br><strong>🌐 投稿网址：</strong>http://www.mwm.net.cn/（需实名注册）</div>';
+  document.getElementById('revisionContent').innerHTML = html;
+}
+
+// ==================== REVISION TAB SWITCHING ====================
+function switchRevisionTab(subtab, evt) {
+  var buttons = document.querySelectorAll('#tab-revision .tab-btn');
+  for (var i = 0; i < buttons.length; i++) { buttons[i].classList.remove('active'); }
+  if (evt && evt.target) evt.target.classList.add('active');
+}
+
+// ==================== RESET ====================
+function resetScoring() {
+  document.getElementById('uploadSection').classList.remove('hidden');
+  document.getElementById('analyzingSection').classList.add('hidden');
+  document.getElementById('resultSection').classList.add('hidden');
+  document.getElementById('paperText').value = '';
+  document.getElementById('fileInfo').classList.add('hidden');
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileProcessStatus').classList.add('hidden');
+  document.getElementById('btnStartAnalyze').disabled = true;
+  extractedPaperText = '';
+
+  document.getElementById('step1').classList.add('active');
+  document.getElementById('step1').classList.remove('done');
+  document.getElementById('step2').classList.remove('active', 'done');
+  document.getElementById('step3').classList.remove('active', 'done');
+
+  document.getElementById('statChars').textContent = '--';
+  document.getElementById('statWords').textContent = '--';
+  document.getElementById('statEnglish').textContent = '--';
+  document.getElementById('statRefs').textContent = '--';
+
+  if (radarChartInstance) { radarChartInstance.destroy(); radarChartInstance = null; }
+  analysisResult = null;
+
+  document.getElementById('revisionContent').innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-secondary);"><div style="font-size:48px;margin-bottom:12px;">📝</div><div>请先在"论文评分系统"中上传并分析论文，<br>修改建议将根据评分结果自动生成</div><button class="btn btn-primary mt-16" onclick="switchTab(\'scoring\')">前往评分</button></div>';
+}
+
+// ==================== CHECKLIST ====================
+function renderChecklist() {
+  var grid = document.getElementById('checklistGrid');
+  var html = '';
+  CHECKLIST_ITEMS.forEach(function(cat) {
+    html += '<div style="background:#fff;border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);border:1px solid var(--border);"><h4 style="color:var(--primary);margin-bottom:12px;font-size:14px;">📌 ' + cat.category + '</h4>';
+    cat.items.forEach(function(item) {
+      html += '<label style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;"><input type="checkbox" style="margin-top:3px;accent-color:var(--primary);"><span>' + item + '</span></label>';
+    });
+    html += '</div>';
+  });
+  grid.innerHTML = html;
+}
+
+// ==================== TOPIC TREND CHART ====================
+function initTopicChart() {
+  var canvas = document.getElementById('topicTrendChart');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  topicChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['新质生产力','数字化转型','双碳目标','数字经济','人工智能','供应链安全','ESG治理','共同富裕','国企改革','乡村振兴'],
+      datasets: [
+        { label:'2024 热度', data:[95,90,85,82,78,72,70,68,65,60], backgroundColor:'rgba(139,26,26,0.7)', borderRadius:4 },
+        { label:'2025 热度（预测）', data:[98,92,88,85,84,76,75,70,66,58], backgroundColor:'rgba(197,165,90,0.7)', borderRadius:4 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      indexAxis:'y',
+      scales: { x:{ max:100, ticks:{ font:{ size:10 } } }, y:{ ticks:{ font:{ size:11 } } } },
+      plugins: { legend:{ position:'bottom', labels:{ font:{ size:11 }, usePointStyle:true } } }
+    }
+  });
+}
+</script>
+</body>
+</html>
